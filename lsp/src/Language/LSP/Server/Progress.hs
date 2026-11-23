@@ -153,10 +153,9 @@ withProgressBase indefinite title clientToken cancellable f = do
     sendReports :: m ()
     sendReports = do
       t <- liftIO $ atomically $ readTMVar tokenVar
-      begin t
-      -- Once we are sending updates, if we get interrupted we should send
-      -- the end notification
-      update t `UE.finally` end t
+      -- Begin and end need to be masked against async exceptions, otherwise we
+      -- might send a begin, be interrupted, and then never send end.
+      UE.bracket_ (begin t) (end t) (update t)
      where
       cancellable' = case cancellable of
         Cancellable -> Just True
